@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js and the geo projection plugin -->
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500&display=swap" rel="stylesheet">
+<style>
+
+#filter{
+  position:absolute;
+  left:1130px;
+  background-color: white;
+  font-family: 'Ubuntu', sans-serif;
+  
+}
+
+.text{
+  font-family: 'Ubuntu', sans-serif;
+}
+
+.circle:hover{
+  stroke: black;
+  stroke-width: 4px;
+}
+
+.tooltip{
+  font-family: 'Ubuntu', sans-serif;
+  color:gray;
+  top: 60px;
+}
+  
+  .ticks {
+    font: 10px sans-serif;
+  }
+  
+  .track,
+  .track-inset,
+  .track-overlay {
+    stroke-linecap: round;
+  }
+  
+  .track {
+    stroke: #000;
+    stroke-opacity: 0.3;
+    stroke-width: 10px;
+  }
+  
+  .track-inset {
+    stroke: #ddd;
+    stroke-width: 8px;
+  }
+  
+  .track-overlay {
+    pointer-events: stroke;
+    stroke-width: 50px;
+    stroke: transparent;
+    cursor: crosshair;
+  }
+  
+  .handle {
+    fill: #fff;
+    stroke: #000;
+    stroke-opacity: 0.5;
+    stroke-width: 1.25px;
+  }
+  iframe{
+    display: inline-block;
+    margin-top: 30px;
+  }
+
+  #introduction{
+    position:absolute;
+    top:1500px;
+    left:15%;
+    width:70%;
+    background-color:aliceblue;
+    font-family: 'Noto Sans TC', sans-serif;
+  }
+  
+  </style>
+
+
+<!-- Button -->
+<div id="filter">
+    
+    <input type="checkbox" class="checkbox" id="cb1" value="A" checked><label>Suicide</label>
+    <input type="checkbox" class="checkbox" id="cb2" value="B" checked><label>Not Suicide</label>
+    <!-- <form id="frm1">
+      Shown Data Number: <input type="text" name="datanum" id="dataNum"><br><br>
+      <input type="button" onclick="myFunction()" value="Submit">
+    </form> -->
+    <br>
+    <select  id="myselect" name="年份" onchange="hue()">
+			<option value="0">Attack Type</option>
+      <option value=4>Hijacking</option>
+			<option value=2>Armed Assault</option>
+      <option value=5>Hostage Taking (Barricade Incident)</option>
+			<option value=6>Hostage Taking (Kidnapping)</option>
+      <option value=3>Bombing/Explosion</option>
+			<option value=9>Unknown</option>
+      <option value=8>Unarmed Assault</option>
+			<option value=7>Facility/Infrastructure Attack</option>
+      <option value=1>Assassination</option>
+			
+		</select>
+  
+
+  <!-- <form>
+    <select  id="myselect2" name="年份" onchange="ready(error,dataGeo,data)">
+			<option value=20000>20000</option>
+			<option value=15000>15000</option>
+			<option value=10000>10000</option>
+			<option value=5000>5000</option>
+			<option value=1000>1000</option>
+			<option value=500>500</option>	
+		</select>
+  </form> -->
+  
+  </div>
+
+<!-- Create an element where the map will take place -->
+<div id="my_tooltip"></div>
+<svg id="my_dataviz" width="1100" height="700"></svg>
+<svg width="1100" height="30" id="timel"></svg>
+<script>
+    
+    d3.queue()
+      .defer(d3.json, "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")  // World shape
+      .defer(d3.csv, "https://raw.githubusercontent.com/CharleneChiang/d3-Final/master/d3data.csv") // Position of circles
+      .await(ready,update);
+
+    
+      
+    function ready(error, dataGeo, data) {
+      
+     
+        // The svg
+    var svg = d3.select("svg"),
+        margin = {right: 50, left: 50},
+        width = +svg.attr("width"),
+        height = +svg.attr("height");
+
+        
+    svg.style("border", "solid #b8b8b8")
+        .style("border-width", "1px");
+
+
+    
+    // Map and projection
+    var projection = d3.geoMercator()
+        .center([-10,45])                // GPS of location to zoom on //地圖中心點的經緯度
+        .scale(160)                       // This is like the zoom//縮放因子
+        .translate([ width/2, height/2 ])
+
+
+        // Create a color scale
+      var allContinent = d3.map(data, function(d){return(d.attacktype1_txt)}).keys()
+      var color = d3.scaleOrdinal()
+        .domain(allContinent)
+        .range(d3.schemeSet1);//根據不同continent給不同顏色
+
+
+      
+    
+      // Add a scale for bubble size
+      var valueExtent = d3.extent(data, function(d) { return +d.nkill; })  // extent回傳極值
+      var size = d3.scaleSqrt()
+        .domain(valueExtent)  // What's in the data
+        .range([ 5, 50])  // Size in pixel
+    
+      // Draw the map
+      g = svg.append("g")
+          .selectAll("path")
+          .data(dataGeo.features)
+          .enter()
+          .append("path")
+            .attr("fill", "#b8b8b8") //地圖顏色填滿
+            .attr("d", d3.geoPath()
+                .projection(projection)
+            )
+          .style("stroke", "none")
+          .style("opacity", .3)
+          
+    
+
+             // create a tooltip
+                var Tooltip = d3.select("#my_tooltip")
+                .attr("class", "tooltip")
+                .style("width","100 px")
+                .style("opacity", 1)
+                .style("background-color", "white")
+                .style("left","1130px")
+                .style("position","absolute")
+               
+
+
+            // Three function that change the tooltip when user hover / move / leave a cell tooltip
+                var mouseover = function(d) {
+                Tooltip.style("opacity", 1)
+                }
+                var mousemove = function(d) {
+                Tooltip
+                    .html("<b>"+d.iyear + "/" + d.imonth + "/" + d.iday +"</b>" + "<br><br>" + "<b>region:   </b>"+ d.region_txt + "<br><br>" + "<b>summary: </b>" + "<br>" + d.summary.substring(10)+ "<br><br>"+ "<b>type:   </b>" + d.attacktype1_txt + "<br><br>" + "<b>motive:   </b>" + "<br>" + d.motive + "<br><br>" + "<b>killed number:   </b>" + d.nkill + "<br><br>" + "<b>wounded number:   </b>" + d.nwound )
+                    // .style("left", (d3.mouse(this)[0]+1000) + "px")
+                    // .style("top", (d3.mouse(this)[1]) + "px")
+                }
+                var mouseleave = function(d) {
+                Tooltip.style("opacity", 1)
+                }
+//  + "type: " + attacktype1_txt + "<br>" + "motive: " + motive + "<br>" + "nkill: " + nkill + "<br>" + "nwound: " + nwound
+
+   var zoom = d3.zoom()
+      .scaleExtent([1, 20])  // This control how much you can unzoom (x0.5) and zoom (x20)
+      .extent([[0, 0], [width, height]])
+      .on("zoom", function () {
+      circle.attr("transform", d3.event.transform)
+      g.attr("transform",d3.event.transform)
+      });
+
+
+    
+
+    var x = d3.scaleLinear()
+    .domain([1970, 2016])
+    .range([0, 1100-30])
+    .clamp(true);  
+
+
+    sliders = d3.select("#timel")
+
+    var slider = sliders.append("g")
+    .attr("class", "slider")
+    .attr("transform", "translate(" + 10 + "," + 10+ ")");
+
+
+    slider.append("line")
+    .attr("class", "track")
+    .attr("x1", x.range()[0])
+    .attr("x2", x.range()[1])
+  .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
+    .attr("class", "track-inset")
+  .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
+    .attr("class", "track-overlay")
+    .call(d3.drag()
+        .on("start.interrupt", function() { slider.interrupt(); })
+        .on("start drag", function() { hue(x.invert(d3.event.x)); }));
+        slider.insert("g", ".track-overlay")
+    .attr("class", "ticks")
+    .attr("transform", "translate(0," + 18 + ")")
+  .selectAll("text")
+  .data(x.ticks(20))
+  .enter().append("text")
+    .attr("x", x)
+    .attr("text-anchor", "middle")
+    .text(function(d) { return d ; });
+
+var handle = slider.insert("circle", ".track-overlay")
+    .attr("class", "handle")
+    .attr("r", 9);
+
+slider.transition() // Gratuitous intro!
+    .duration(750)
+    .tween("hue", function() {
+      var i = d3.interpolate(0, 70);
+      return function(t) { hue(i(t)); };
+    });
+
+    //var dataNum = document.getElementById('myselect2').value
+
+// Add circles:
+circle = svg
+        .selectAll("myCircles")
+        .data(data.sort(function(a,b) { return +b.nkill - +a.nkill }).filter(function(d,i){ return i<20000}))//用降冪排序後 顯示出前1000筆
+        .enter()
+        .append("circle")
+          .attr("class" , function(d){if(d.suicide == "1"){return "A"}else{return "B"}})
+          .attr("cx", function(d){ return projection([+d.longitude, +d.latitude])[0] })
+          .attr("cy", function(d){ return projection([+d.longitude, +d.latitude])[1] })
+          .attr("r", function(d){ return size(+d.nkill) })
+          .style("fill", function(d){ return color(d.attacktype1) })
+          .attr("stroke-width", 1)
+          .attr("fill-opacity",0.4)
+          .attr("display","none")
+          .on("mouseover", mouseover)
+          .on("mousemove", mousemove)
+          .on("mouseleave", mouseleave)
+
+          svg.call(zoom).append("g")
+
+
+
+          
+    
+    // d3.select("#myselect").property(onchange,show())
+    
+      // Add title and explanation
+      svg
+        .append("text")
+          .attr("class","text")
+          .attr("text-anchor", "end")
+          .style("fill", "black")
+          .attr("x", width - 10)
+          .attr("y", height - 30)
+          .attr("width", 90)
+          .html("Global Terrorism Attack")
+          .style("font-size", 25)
+
+        svg
+          .append("text")
+          .attr("class","text")
+          .attr("text-anchor", "end")
+          .style("fill", "gray")
+          .attr("x", width - 10)
+          .attr("y", height - 8)
+          .attr("width", 90)
+          .html("From 1970 to 2016")
+          .style("font-size", 18)
+    
+    
+      // --------------- //
+      // ADD LEGEND //
+      // --------------- //
+    
+    // Add one dot in the legend for each name.
+      keys=["Hijacking","Armed Assault","Hostage Taking(Barricade Incident)","Hostage Taking(Kidnapping)","Bombing/Explosion","Unknown","Unarmed Assault","Facility/Infrastructure Attack","Assassination"]
+      svg.selectAll("mydots")
+        .data(allContinent)
+        .enter()
+        .append("circle")
+          .attr("cx", 15)
+          .attr("cy", function(d,i){ return 390 + i*23}) // 100 is where the first dot appears. 25 is the distance between dots
+          .attr("r", 5)
+          .style("fill", function(d){ return color(d)})
+
+      // Add one dot in the legend for each name.
+      svg.selectAll("mylabels")
+        .data(keys)
+        .enter()
+        .append("text")
+          .attr("class","text")
+          .style("font-size","12.5px")
+          .attr("x", 30)
+          .attr("y", function(d,i){ return 390 + i*23}) // 100 is where the first dot appears. 25 is the distance between dots
+          .style("fill", "gray")
+          .text(function(d){ return d})
+          .attr("text-anchor", "left")
+          .style("alignment-baseline", "middle")
+
+
+
+      // Add legend: circles
+      var valuesToShow = [100,800,1500]
+      var xCircle = 70
+      var xLabel = 120
+      svg
+        .selectAll("legend")
+        .data(valuesToShow)
+        .enter()
+        .append("circle")
+          .attr("cx", xCircle)
+          .attr("cy", function(d){ return height - size(d) } )
+          .attr("r", function(d){ return size(d) })
+          .style("fill", "none")
+          .attr("stroke", "gray")
+          
+   
+    
+      // Add legend: segments
+      svg
+        .selectAll("legend")
+        .data(valuesToShow)
+        .enter()
+        .append("line")
+          .attr('x1', function(d){ return xCircle + size(d) } )
+          .attr('x2', xLabel)
+          .attr('y1', function(d){ return height - size(d) } )
+          .attr('y2', function(d){ return height - size(d) } )
+          .attr('stroke', 'gray')
+          .style('stroke-dasharray', ('2,2'))
+    
+      // Add legend: labels
+      svg
+        .selectAll("legend")
+        .data(valuesToShow)
+        .enter()
+        .append("text")
+          .attr('x', xLabel)
+          .attr('y', function(d){ return height - size(d) } )
+          .text( function(d){ return d } )
+          .style("font-size", 10)
+          .attr('alignment-baseline', 'middle')
+          
+    
+    
+    }
+
+
+  function hue(h) {
+  var index = document.getElementById('myselect').value
+
+  svg = d3.select("svg")
+  var x = d3.scaleLinear()
+    .domain([1970, 2016])
+    .range([0, 1100-30])
+    .clamp(true); 
+  handle = d3.select(".handle")
+  handle.attr("cx", x(h));
+    
+  if(isNaN(x(h))){year = 1970}else{year = Math.round(1970 + (x(h)/(1070/46)))}
+  
+  circle.attr("display", function(d){
+            if(index==0){
+            if(d.iyear==year){return "block"}else{return "none"}
+            }else{
+              if(d.iyear==year && d.attacktype1 == index){
+                return "block"
+              }else{
+                return "none"
+              }
+            }
+          })
+          
+          
+          
+          }
+
+
+    
+    // This function is gonna change the opacity and size of selected and unselected circles
+    function update(error, dataGeo, data){
+
+            // For each check box:
+            d3.selectAll(".checkbox").each(function(d){
+            cb = d3.select(this);
+            check = cb.property("checked")
+            grp = cb.property("value")
+            svg = d3.select("svg")
+            var valueExtent = d3.extent(data, function(d) { return +d.nkill; })  // extent回傳極值
+            var size = d3.scaleSqrt()
+              .domain(valueExtent)  // What's in the data
+              .range([ 1, 20])  // Size in pixel
+            
+
+            // If the box is check, I show the group
+            if(check){
+                svg.selectAll("."+grp).transition().duration(1000).style("opacity", 1)
+              console.log("check")
+            // Otherwise I hide it
+            }else{
+                svg.selectAll("."+grp).transition().duration(1000).style("opacity", 0)
+                console.log("."+grp)
+            }
+            })
+            }
+
+            // When a button change, I run the update function
+            d3.selectAll(".checkbox").on("change",update);
+
+            // And I initialize it at the beginning
+            // update(error,dataGeo,data)
+            
+    
+
+    </script>
+<br>
+<iframe src="test.html" frameborder="0" width="1500" height = "750"></iframe>
+<div id="introduction">
+  <br>圖表說明:<br>第一部分: 地圖<br>地圖上的圓圈點是根據事件發生的經緯度來呈現，而圓圈大小則是取決於該事件所死亡的人數來定義，顏色則是根據不同的攻擊方式而不同。<br>
+第二部分: 圖表<br>根據歷年來的資料做長條圖，並且將各攻擊方法依照不同顏色顯現，同時也可以統計總事件數量。<br><br>  操作說明:<br>地圖的部分右邊可以選擇顯示是否為自殺攻擊的事件，下拉式選單可以選擇攻擊的型態，預設為全部類型。游標移到地圖上的圓點上會顯示事件的日期以及事件簡述。
+點擊下方的長條圖會顯示當年不同攻擊型態事件數的圓餅圖，以及確切的案件次數。<br><br><br>
+</div>
